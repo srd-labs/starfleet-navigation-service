@@ -1,0 +1,30 @@
+# Local Python virtual environment
+.venv/
+
+# Python generated files
+__pycache__/
+*.pyc
+*.pyo
+
+# Git repository and metadata
+.git/
+.gitignore
+
+# macOS files
+.DS_Store
+
+# Environment / secret files
+.env
+.env.*
+
+# IDE configuration
+.vscode/
+.idea/
+
+# Test/cache files
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local logs
+*.log
