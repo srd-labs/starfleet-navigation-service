@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: starfleet-navigation-service
+spec:
+  type: LoadBalancer
+
+  selector:
+    app: starfleet-navigation-service
+
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
