@@ -7,6 +7,7 @@ metadata:
 spec:
   replicas: 2
 
+
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -23,6 +24,13 @@ spec:
         app: starfleet-navigation-service
 
     spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: starfleet-navigation-service
       containers:
         - name: navigation-service
           image: us-central1-docker.pkg.dev/starfleet-gke-platform-lab/starfleet-apps/starfleet-navigation-service:v0.1.1
