@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: starfleet-navigation-service
+  labels:
+    app: starfleet-navigation-service
+spec:
+  replicas: 2
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+
+  selector:
+    matchLabels:
+      app: starfleet-navigation-service
+
+  template:
+    metadata:
+      labels:
+        app: starfleet-navigation-service
+
+    spec:
+      containers:
+        - name: navigation-service
+          image: us-central1-docker.pkg.dev/starfleet-gke-platform-lab/starfleet-apps/starfleet-navigation-service:v0.1.1
+
+          ports:
+            - containerPort: 8080
+
+          env:
+            - name: RELEASE_VERSION
+              value: "v0.1.1"
+
+            - name: COMMIT_ID
+              value: "480baea"
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
