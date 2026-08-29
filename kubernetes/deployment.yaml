@@ -5,9 +5,6 @@ metadata:
   labels:
     app: starfleet-navigation-service
 spec:
-  replicas: 2
-
-
   strategy:
     type: RollingUpdate
     rollingUpdate:
