@@ -54,3 +54,24 @@ jobs:
       - name: Configure Artifact Registry authentication
         run: |
           gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+      # Build the Navigation service container image for the linux/amd64
+      # architecture used by the GKE nodes.
+      #
+      # Tag the image with the Git commit SHA so every deployment can be
+      # traced back to the exact source-code revision that produced it.
+      - name: Build Navigation image
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -t "${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}" \
+            .
+
+      # Push the SHA-tagged container image to the Starfleet Artifact
+      # Registry repository so it can be deployed to the GKE clusters.
+      - name: Push Navigation image
+        run: |
+          docker push \
+            "${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}"
+
+
