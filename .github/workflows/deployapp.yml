@@ -67,11 +67,22 @@ jobs:
             -t "${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}" \
             .
 
-      # Push the SHA-tagged container image to the Starfleet Artifact
-      # Registry repository so it can be deployed to the GKE clusters.
+      # Scan the image before publishing it so vulnerable images can be
+      # blocked from progressing further through the deployment pipeline.
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: "${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          format: table
+          vuln-type: "os,library"
+          severity: "HIGH,CRITICAL"
+          ignore-unfixed: true
+          exit-code: "1"
+
+      # Push only an image that passed the vulnerability scan to the
+      # Starfleet Artifact Registry repository.
       - name: Push Navigation image
         run: |
           docker push \
             "${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}"
-
 
