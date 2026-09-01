@@ -1,0 +1,48 @@
+name: Deploy Navigation Service
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: starfleet-gke-platform-lab
+  REGION: us-central1
+  GAR_REPOSITORY: starfleet-apps
+  IMAGE_NAME: starfleet-navigation-service
+
+jobs:
+  deploy:
+    name: Authenticate with Google Cloud
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Authenticate to Google Cloud using GitHub OIDC and
+      # Workload Identity Federation. No service account key is used.
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Verify that the workflow received temporary Google Cloud
+      # credentials and is operating against the correct project.
+      - name: Verify Google Cloud authentication
+        run: |
+          gcloud auth list
+          gcloud config set project "$PROJECT_ID"
+          gcloud config get-value project
+
+      # Configure Docker authentication for the existing
+      # Artifact Registry repository.
+      - name: Configure Artifact Registry authentication
+        run: |
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
