@@ -126,3 +126,35 @@ jobs:
           docker push \
             "${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}"
 
+      # Authenticate kubectl to the Alpha GKE cluster using the
+      # short-lived Google Cloud identity established through WIF.
+      - name: Get Alpha GKE credentials
+        uses: google-github-actions/get-gke-credentials@v3
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_LOCATION }}
+
+      # Deploy the exact container image produced by this workflow run.
+      # The immutable Git commit SHA provides traceability between the
+      # source revision, container image, and running GKE workload.
+      - name: Deploy Navigation to Alpha
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}"
+
+          kubectl set image deployment/starfleet-navigation-service \
+            navigation-service="$IMAGE"
+
+      # Wait for Kubernetes to complete the rolling deployment and
+      # display the resulting workload status for pipeline validation.
+      - name: Verify Alpha deployment
+        run: |
+          kubectl rollout status deployment/starfleet-navigation-service --timeout=180s
+
+          echo ""
+          echo "Navigation pods:"
+          kubectl get pods -l app=starfleet-navigation-service -o wide
+
+
+
+
