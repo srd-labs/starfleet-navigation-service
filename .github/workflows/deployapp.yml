@@ -15,18 +15,17 @@ env:
   GKE_CLUSTER: enterprise-gke-alpha
   GKE_LOCATION: us-central1-a
 
-
 jobs:
   deploy:
-    name: Authenticate with Google Cloud
     runs-on: ubuntu-latest
 
     steps:
+      # Check out the application source code used to build the container image.
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Authenticate to Google Cloud using GitHub OIDC and
-      # Workload Identity Federation. No service account key is used.
+      # Authenticate to Google Cloud using GitHub OIDC and Workload
+      # Identity Federation without storing a service-account key.
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
         with:
@@ -34,83 +33,26 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
+      # Install the Google Cloud CLI used for Artifact Registry operations.
       - name: Set up Google Cloud CLI
         uses: google-github-actions/setup-gcloud@v3
 
-      # Verify that the workflow received temporary Google Cloud
-      # credentials and is operating against the correct project.
-      - name: Verify Google Cloud authentication
-        run: |
-          echo "Repository: ${{ github.repository }}"
-          echo "Ref: ${{ github.ref }}"
-          echo "Ref type: ${{ github.ref_type }}"
-          
-          gcloud auth list
-          gcloud auth print-access-token >/dev/null
-
-          gcloud config set project "$PROJECT_ID"
-          gcloud config get-value project
-
-
-      # Configure Docker authentication for the existing
-      # Artifact Registry repository.
-      - name: Configure Artifact Registry authentication
+      # Configure Docker to authenticate to the regional Artifact Registry.
+      - name: Configure Docker authentication
         run: |
           gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
 
-      # Build the Navigation service container image for the linux/amd64
-      # architecture used by the GKE nodes.
-      #
-      # Tag the image with the Git commit SHA so every deployment can be
-      # traced back to the exact source-code revision that produced it.
+      # Build the Navigation service image for the amd64 architecture
+      # used by the GKE nodes and tag it with the immutable Git commit SHA.
       - name: Build Navigation image
         run: |
           docker build \
-            --no-cache \
             --platform linux/amd64 \
             -t "${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}" \
             .
 
-      # Verify the versions of vulnerable Python packages inside the
-      # exact container image that will be scanned and published.
-      - name: Check Python package versions
-        run: |
-          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}"
-
-          docker run --rm "$IMAGE" python -c "
-          import msgpack
-          import setuptools
-          print('msgpack:', msgpack.__version__)
-          print('setuptools:', setuptools.__version__)
-          "
-
-      # Verify whether the vulnerable package versions reported by Trivy
-      # originate from the SBOM bundled with pip rather than the runtime packages.
-      - name: Inspect pip vendored SBOM
-        run: |
-          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}"
-
-          docker run --rm "$IMAGE" sh -c '
-            find /usr/local/lib -path "*/pip/_vendor/bom.cdx.json" -print
-          '
-
-      - name: Check vulnerable versions in pip SBOM
-        run: |
-          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}"
-
-          docker run --rm "$IMAGE" sh -c '
-            grep -E "\"(msgpack|setuptools)\"" \
-              /usr/local/lib/python*/site-packages/pip/_vendor/bom.cdx.json \
-              | head -20 || true
-          '
-
-
-      # Scan the container image for HIGH and CRITICAL vulnerabilities.
-      #
-      # The pip distribution includes a vendored CycloneDX SBOM that may
-      # describe older internal components even when the runtime packages
-      # have already been upgraded. Skip that metadata file so the scan
-      # evaluates the packages actually present in the application image.
+      # Scan the image for HIGH and CRITICAL vulnerabilities before it
+      # is allowed to proceed to Artifact Registry.
       - name: Scan image for vulnerabilities
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -122,15 +64,13 @@ jobs:
           exit-code: "1"
           skip-files: "/usr/local/lib/python3.13/site-packages/pip/_vendor/bom.cdx.json"
 
-      # Push only an image that passed the vulnerability scan to the
-      # Starfleet Artifact Registry repository.
+      # Publish only an image that has passed the vulnerability gate.
       - name: Push Navigation image
         run: |
           docker push \
             "${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}"
 
-      # Authenticate kubectl to the Alpha GKE cluster using the
-      # short-lived Google Cloud identity established through WIF.
+      # Retrieve short-lived Kubernetes credentials for the Alpha cluster.
       - name: Get Alpha GKE credentials
         uses: google-github-actions/get-gke-credentials@v3
         with:
@@ -138,9 +78,8 @@ jobs:
           cluster_name: ${{ env.GKE_CLUSTER }}
           location: ${{ env.GKE_LOCATION }}
 
-      # Deploy the exact container image produced by this workflow run.
-      # The immutable Git commit SHA provides traceability between the
-      # source revision, container image, and running GKE workload.
+      # Update only the Navigation deployment to the image produced
+      # by this workflow run.
       - name: Deploy Navigation to Alpha
         run: |
           IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}"
@@ -148,8 +87,7 @@ jobs:
           kubectl set image deployment/starfleet-navigation-service \
             navigation-service="$IMAGE"
 
-      # Wait for Kubernetes to complete the rolling deployment and
-      # display the resulting workload status for pipeline validation.
+      # Wait for the rolling update to complete and display the resulting pods.
       - name: Verify Alpha deployment
         run: |
           kubectl rollout status deployment/starfleet-navigation-service --timeout=180s
@@ -157,7 +95,3 @@ jobs:
           echo ""
           echo "Navigation pods:"
           kubectl get pods -l app=starfleet-navigation-service -o wide
-
-
-
-
