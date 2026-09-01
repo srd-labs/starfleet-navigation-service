@@ -3,6 +3,7 @@ import logging
 import json
 import os
 from datetime import datetime, timezone
+from google.cloud import storage
 
 COMMIT_ID = os.getenv("COMMIT_ID", "local")
 RELEASE_VERSION = os.getenv("RELEASE_VERSION", "dev")
@@ -20,6 +21,43 @@ def log_event(message, level="INFO"):
     }
 
     logging.info(json.dumps(log_entry))
+
+
+@app.route("/api/navigation/gcp-status")
+def gcp_status():
+    secret_path = "/mnt/secrets/navigation-service-secret"
+
+    try:
+        # Validate that the Secret Manager value is mounted into the pod.
+        secret_loaded = os.path.isfile(secret_path) and os.path.getsize(secret_path) > 0
+
+        # Use Application Default Credentials.
+        # In GKE this resolves through Workload Identity.
+        storage_client = storage.Client()
+
+        bucket_name = "starfleet-gke-platform-lab-navigation-data"
+        bucket = storage_client.bucket(bucket_name)
+
+        # Make a real authenticated request to Cloud Storage.
+        blobs = list(bucket.list_blobs(max_results=1))
+
+        return {
+            "service": "navigation",
+            "secret_loaded": secret_loaded,
+            "workload_identity": "authenticated",
+            "gcp_service": "cloud-storage",
+            "bucket": bucket_name,
+            "bucket_access": "success"
+        }, 200
+
+    except Exception as e:
+        return {
+            "service": "navigation",
+            "secret_loaded": os.path.isfile(secret_path),
+            "gcp_service": "cloud-storage",
+            "bucket_access": "failed",
+            "error": str(e)
+        }, 500
 
 
 @app.route("/health_metadata")

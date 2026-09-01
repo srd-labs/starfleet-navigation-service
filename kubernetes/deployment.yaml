@@ -21,6 +21,7 @@ spec:
         app: starfleet-navigation-service
 
     spec:
+      serviceAccountName: navigation-service
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
@@ -28,10 +29,24 @@ spec:
           labelSelector:
             matchLabels:
               app: starfleet-navigation-service
+
+      volumes:
+        - name: navigation-secrets
+          csi:
+            driver: secrets-store-gke.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: "navigation-secrets"      
+
       containers:
         - name: navigation-service
-          image: us-central1-docker.pkg.dev/starfleet-gke-platform-lab/starfleet-apps/starfleet-navigation-service:v0.1.1
-
+          image: us-central1-docker.pkg.dev/starfleet-gke-platform-lab/starfleet-apps/starfleet-navigation-service:v0.1.2
+          
+          volumeMounts:
+            - name: navigation-secrets
+              mountPath: "/mnt/secrets"
+              readOnly: true
+          
           ports:
             - containerPort: 8080
 
