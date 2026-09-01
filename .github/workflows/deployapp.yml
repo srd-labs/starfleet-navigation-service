@@ -70,6 +70,13 @@ jobs:
           docker push \
             "${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}"
 
+      # Install the gcloud beta component required for the
+      # Binary Authorization sign-and-create command.
+      - name: Install gcloud beta component
+        run: |
+          gcloud components install beta --quiet
+
+
       # Sign the pushed image digest with Cloud KMS and create a
       # Binary Authorization attestation before deploying to GKE.
       - name: Create Binary Authorization attestation
