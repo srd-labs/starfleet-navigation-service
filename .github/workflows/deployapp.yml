@@ -102,8 +102,12 @@ jobs:
           '
 
 
-      # Scan the image before publishing it so vulnerable images can be
-      # blocked from progressing further through the deployment pipeline.
+      # Scan the container image for HIGH and CRITICAL vulnerabilities.
+      #
+      # The pip distribution includes a vendored CycloneDX SBOM that may
+      # describe older internal components even when the runtime packages
+      # have already been upgraded. Skip that metadata file so the scan
+      # evaluates the packages actually present in the application image.
       - name: Scan image for vulnerabilities
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -113,6 +117,7 @@ jobs:
           severity: "HIGH,CRITICAL"
           ignore-unfixed: true
           exit-code: "1"
+          skip-files: "/usr/local/lib/python3.13/site-packages/pip/_vendor/bom.cdx.json"
 
       # Push only an image that passed the vulnerability scan to the
       # Starfleet Artifact Registry repository.
