@@ -81,6 +81,26 @@ jobs:
           print('setuptools:', setuptools.__version__)
           "
 
+      # Verify whether the vulnerable package versions reported by Trivy
+      # originate from the SBOM bundled with pip rather than the runtime packages.
+      - name: Inspect pip vendored SBOM
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}"
+
+          docker run --rm "$IMAGE" sh -c '
+            find /usr/local/lib -path "*/pip/_vendor/bom.cdx.json" -print
+          '
+
+      - name: Check vulnerable versions in pip SBOM
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}"
+
+          docker run --rm "$IMAGE" sh -c '
+            grep -E "\"(msgpack|setuptools)\"" \
+              /usr/local/lib/python*/site-packages/pip/_vendor/bom.cdx.json \
+              | head -20 || true
+          '
+
 
       # Scan the image before publishing it so vulnerable images can be
       # blocked from progressing further through the deployment pipeline.
