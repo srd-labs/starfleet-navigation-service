@@ -63,9 +63,24 @@ jobs:
       - name: Build Navigation image
         run: |
           docker build \
+            --no-cache \
             --platform linux/amd64 \
             -t "${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}" \
             .
+
+      # Verify the versions of vulnerable Python packages inside the
+      # exact container image that will be scanned and published.
+      - name: Check Python package versions
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}"
+
+          docker run --rm "$IMAGE" python -c "
+          import msgpack
+          import setuptools
+          print('msgpack:', msgpack.__version__)
+          print('setuptools:', setuptools.__version__)
+          "
+
 
       # Scan the image before publishing it so vulnerable images can be
       # blocked from progressing further through the deployment pipeline.
