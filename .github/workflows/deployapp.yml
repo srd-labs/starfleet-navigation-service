@@ -12,6 +12,9 @@ env:
   REGION: us-central1
   GAR_REPOSITORY: starfleet-apps
   IMAGE_NAME: starfleet-navigation-service
+  GKE_CLUSTER: enterprise-gke-alpha
+  GKE_LOCATION: us-central1-a
+
 
 jobs:
   deploy:
