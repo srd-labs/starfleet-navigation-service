@@ -76,7 +76,6 @@ jobs:
         run: |
           gcloud components install beta --quiet
 
-
       # Sign the pushed image digest with Cloud KMS and create a
       # Binary Authorization attestation before deploying to GKE.
       - name: Create Binary Authorization attestation
@@ -89,19 +88,34 @@ jobs:
 
           IMAGE_BY_DIGEST="${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}@${DIGEST}"
 
-          echo "Attesting image:"
+          echo "Image digest:"
           echo "${IMAGE_BY_DIGEST}"
 
-          gcloud beta container binauthz attestations sign-and-create \
+          EXISTING_ATTESTATION=$(gcloud container binauthz attestations list \
             --project="${PROJECT_ID}" \
-            --artifact-url="${IMAGE_BY_DIGEST}" \
             --attestor="starfleet-image-attestor" \
             --attestor-project="${PROJECT_ID}" \
-            --keyversion-project="${PROJECT_ID}" \
-            --keyversion-location="global" \
-            --keyversion-keyring="starfleet-binauthz-keyring" \
-            --keyversion-key="starfleet-image-attestation-key" \
-            --keyversion="1"      
+            --format="value(resourceUri)" \
+            | grep -F "${IMAGE_BY_DIGEST}" || true)
+
+          if [ -n "${EXISTING_ATTESTATION}" ]; then
+            echo "Attestation already exists for this image."
+            echo "Skipping attestation creation."
+          else
+            echo "Creating attestation for:"
+            echo "${IMAGE_BY_DIGEST}"
+
+            gcloud beta container binauthz attestations sign-and-create \
+              --project="${PROJECT_ID}" \
+              --artifact-url="${IMAGE_BY_DIGEST}" \
+              --attestor="starfleet-image-attestor" \
+              --attestor-project="${PROJECT_ID}" \
+              --keyversion-project="${PROJECT_ID}" \
+              --keyversion-location="global" \
+              --keyversion-keyring="starfleet-binauthz-keyring" \
+              --keyversion-key="starfleet-image-attestation-key" \
+              --keyversion="1"
+          fi
 
 
      # Retrieve short-lived Kubernetes credentials for the Alpha cluster.
