@@ -476,3 +476,4 @@ kubectl get node \
 
 7. Versioned container tags make troubleshooting and rollback easier than
    relying on `latest`.
+
