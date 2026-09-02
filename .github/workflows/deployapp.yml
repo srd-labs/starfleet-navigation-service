@@ -93,11 +93,13 @@ jobs:
           echo "Image digest:"
           echo "${IMAGE_BY_DIGEST}"
 
-          EXISTING_ATTESTATION=$(gcloud container binauthz attestations list \
+          ATTESTATIONS=$(gcloud container binauthz attestations list \
             --project="${PROJECT_ID}" \
             --attestor="starfleet-image-attestor" \
             --attestor-project="${PROJECT_ID}" \
-            --format="value(resourceUri)" \
+            --format="value(resourceUri)")
+
+          EXISTING_ATTESTATION=$(echo "${ATTESTATIONS}" \
             | grep -F "${IMAGE_BY_DIGEST}" || true)
 
           if [ -n "${EXISTING_ATTESTATION}" ]; then
