@@ -88,6 +88,8 @@ jobs:
 
           IMAGE_BY_DIGEST="${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}@${DIGEST}"
 
+          echo "IMAGE_BY_DIGEST=${IMAGE_BY_DIGEST}" >> "$GITHUB_ENV"
+
           echo "Image digest:"
           echo "${IMAGE_BY_DIGEST}"
 
@@ -128,12 +130,13 @@ jobs:
 
       # Update only the Navigation deployment to the image produced
       # by this workflow run.
-      - name: Deploy Navigation to Alpha
+      - name: Deploy Navigation to Alpha GKE
         run: |
-          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}"
+          echo "Deploying attested image:"
+          echo "${IMAGE_BY_DIGEST}"
 
           kubectl set image deployment/starfleet-navigation-service \
-            navigation-service="$IMAGE"
+            navigation-service="${IMAGE_BY_DIGEST}"
 
       # Wait for the rolling update to complete and display the resulting pods.
       - name: Verify Alpha deployment
