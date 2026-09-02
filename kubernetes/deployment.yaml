@@ -56,6 +56,9 @@ spec:
 
             - name: COMMIT_ID
               value: "480baea"
+          
+            - name: QUADRANT
+              value: "alpha		
 
           resources:
             requests:

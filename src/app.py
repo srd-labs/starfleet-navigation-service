@@ -78,9 +78,8 @@ def home():
     return jsonify(
         service="starfleet-navigation-service",
         status="operational",
-        quadrant="alpha",
+        quadrant=os.getenv("QUADRANT", "unknown"),
     )
-
 
 @app.route("/health")
 def health():
